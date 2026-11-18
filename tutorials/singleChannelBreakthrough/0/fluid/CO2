@@ -1,0 +1,42 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Version:  v2412
+    \\  /    A nd           | Website:  www.openfoam.com
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    location    "0/fluid";
+    object      CO2;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+dimensions      [0 0 0 0 0 0 0];
+internalField   uniform 0;
+boundaryField
+{
+    // Feed: 400 ppm (mol) CO2 in N2, given as mass fraction and switched on
+    // at 0.3 s, after the flow field has developed.
+    inlet
+    {
+        type            uniformFixedValue;
+        uniformValue    table ( (0 0) (0.3 0) (0.3001 0.0006285) (1e6 0.0006285) );
+    }
+    outlet          { type inletOutlet; inletValue uniform 0; value uniform 0; }
+    // Mass transfer into the pores of the wall, coupled to C.CO2 in the solid
+    fluid_to_solid
+    {
+        type            speciesCoupledMixed;
+        phase           fluid;
+        nbrField        C.CO2;
+        D               1.4e-5;     // = speciesDiffusivity of CO2
+        rho             rho;
+        value           uniform 0;
+    }
+}
+
+// ************************************************************************* //

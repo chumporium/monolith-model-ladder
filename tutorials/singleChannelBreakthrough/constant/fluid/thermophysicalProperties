@@ -1,0 +1,52 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Version:  v2412
+    \\  /    A nd           | Website:  www.openfoam.com
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant/fluid";
+    object      thermophysicalProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+thermoType
+{
+    type            heRhoThermo;
+    mixture         multiComponentMixture;
+    transport       const;
+    thermo          hConst;
+    energy          sensibleEnthalpy;
+    equationOfState perfectGas;
+    specie          specie;
+}
+
+species ( CO2 N2 );
+inertSpecie N2;
+
+// Molecular diffusivities in the gas [m2/s]
+speciesDiffusivity
+{
+    CO2     1.4e-5;
+    N2      2.0e-5;
+}
+
+CO2
+{
+    specie          { molWeight 44.01; }
+    thermodynamics  { Cp 846; Hf 0; }
+    transport       { mu 1.48e-5; Pr 0.77; }
+}
+N2
+{
+    specie          { molWeight 28.01; }
+    thermodynamics  { Cp 1040; Hf 0; }
+    transport       { mu 1.76e-5; Pr 0.72; }
+}
+
+// ************************************************************************* //

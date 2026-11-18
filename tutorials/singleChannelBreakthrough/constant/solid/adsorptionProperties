@@ -1,0 +1,66 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Version:  v2412
+    \\  /    A nd           | Website:  www.openfoam.com
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant/solid";
+    object      adsorptionProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+species     ( CO2 );          // adsorbing species; each needs a sub-dictionary below
+mixingRule  ideal;            // ideal | extendedLangmuir | IAST | coAdsorption
+
+epsilonP      0.4804;         // [-] transport (macro) porosity of the wall
+epsilonPtotal 0.5306;         // [-] total porosity (gas storage); default = epsilonP
+rhoS          1458;           // [kg/m3] wall density
+fActive       0.1;            // [-] mass fraction of active sorbent in the wall
+// isothermalAdsorption yes;  // switches off the heat of adsorption (default no)
+
+CO2
+{
+    molWeight   44.01;        // [g/mol]
+    Ds          8e-6;         // [m2/s] effective pore diffusivity in the wall
+
+    // Toth isotherm, q* in mol per kg of active sorbent:
+    //   q* = ns b p / (1 + (b p)^t)^(1/t)
+    //   b  = b0 exp[deltaH0/(R T0) (T0/T - 1)],  t = t0 + alpha_t (1 - T0/T),
+    //   ns = ns0 exp[chi (1 - T/T0)];  b0 in 1/Pa, deltaH0 in J/mol
+    isotherm
+    {
+        type     Toth;
+        T0       298;
+        ns0      1.5482;
+        b0       41.890;
+        t0       0.1703;
+        deltaH0  70000;
+        chi      0;
+        alpha_t  0;
+    }
+
+    // Uptake rate: localEquilibrium (q = q* in each cell; pore diffusion in
+    // the wall sets the rate) | LDF | intraGrainDiffusion | dualSite
+    kinetics
+    {
+        type localEquilibrium;
+    }
+
+    // Optional Bosanquet combination of bulk and Knudsen diffusion in the pores
+    bosanquet
+    {
+        active  false;
+        Dbulk   1.6e-5;       // [m2/s]
+        pRef    101325;       // [Pa]
+        TRef    298;          // [K]
+        rPore   8.75e-6;      // [m]
+    }
+}
+
+// ************************************************************************* //
