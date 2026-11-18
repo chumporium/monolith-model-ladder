@@ -7,8 +7,8 @@ isotherms, uptake rate models, the heat of adsorption, and species coupling at t
 
 The solver was used for the three-dimensional channel and module simulations in
 
-> E. Munandar, Nasruddin, A.P. Sasmito, *A model-ladder framework for the design of monolith adsorption
-> contactors*, submitted to Chemical Engineering Science.
+> E. Munandar, Nasruddin, A.P. Sasmito, *A hierarchical modelling framework for the design of monolith
+> contactors in cyclic adsorption processes*, submitted to Chemical Engineering Science.
 
 Release `v1.0-CES` is the version used in that article.
 
