@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+#------------------------------------------------------------------------------
+# Allwmake -- membangun ketiga target adsorptionMultiRegionFoam, berurutan.
+#
+#   1. libadsorptionCoupledBCs   BC kopling species di antarmuka (jarang berubah)
+#   2. libadsorptionModels       isoterm x mixingRule x kineticClosure
+#   3. adsorptionMultiRegionFoam solver
+#
+# Urutan mengikuti build.log yang sudah dipakai proyek ini. Yang WAJIB hanya
+# "libadsorptionModels sebelum solver" (Make/options menaut -ladsorptionModels);
+# BC berdiri sendiri, tetapi harus ada sebelum case dijalankan karena dimuat
+# runtime lewat `libs ("libadsorptionCoupledBCs.so")` di controlDict.
+# Kegagalannya muncul sebagai "unknown patchField type speciesCoupledMixed"
+# saat run, bukan sebagai galat build.
+#
+# PEMAKAIAN
+#   ./Allwmake                bangun ketiganya (terisolasi, lihat di bawah)
+#   ./Allwmake lib            hanya kedua pustaka
+#   ./Allwmake -j             argumen sisanya diteruskan ke wmake
+#   BUNDLE_ISOLATED=0 ./Allwmake     pakai FOAM_USER_* bersama (BERBAHAYA)
+#
+#------------------------------------------------------------------------------
+# ISOLASI -- kenapa default-nya menyala
+#
+# `FOAM_USER_LIBBIN` adalah SATU lokasi bersama per user. Pohon sumber lain di
+# mesin yang sama (mis. ~/adsorptionMultiRegionFoam) memasang ke sana juga.
+# Membangun dari bundle tanpa isolasi akan MENIMPA libadsorptionModels.so yang
+# jadi dasar hasil-hasil sebelumnya.
+#
+# Itu bukan kekhawatiran teoretis: catatan proyek mencatat dua biner yang
+# dibangun dari sumber SAMA menggeser serapan 0,12%. Menimpa biner sambil masih
+# mengutip angka lama = mencampur dua populasi hasil tanpa jejak.
+#
+# Karena itu bundle memasang ke $WM_PROJECT_USER_DIR sendiri. Efek sampingnya
+# justru diinginkan: kedua pohon hidup berdampingan, sehingga hasil lama tetap
+# dapat direproduksi dari binernya sendiri -- yaitu himpunan regresi yang
+# dibutuhkan sebelum menyentuh updateDs().
+#
+# Matikan HANYA kalau memang berniat menimpa: BUNDLE_ISOLATED=0
+#------------------------------------------------------------------------------
+cd "${0%/*}" || exit 1          # jalankan dari direktori skrip (src/)
+
+if [ -z "${WM_PROJECT_DIR:-}" ]
+then
+    echo "ERROR: lingkungan OpenFOAM belum dimuat (WM_PROJECT_DIR kosong)." 1>&2
+    echo "       source \$FOAM_ETC/bashrc, atau 'module load openfoam/v2412'," 1>&2
+    echo "       lalu jalankan ulang." 1>&2
+    exit 1
+fi
+
+# Versi dikunci: biner user tidak sepadan lintas versi OpenFOAM, dan seluruh
+# hasil proyek ini dibangun di v2412. Lebih baik berhenti daripada diam-diam
+# membangun di versi lain.
+if [ "${WM_PROJECT_VERSION:-}" != "v2412" ]
+then
+    echo "ERROR: WM_PROJECT_VERSION='${WM_PROJECT_VERSION:-?}', dibutuhkan v2412." 1>&2
+    exit 1
+fi
+
+# Selaraskan WM_COMPILER dengan platform yang SEBENARNYA. Di klaster, module
+# openfoam/v2412 mengekspor WM_COMPILER=Icx padahal instalasinya Gcc
+# (WM_OPTIONS=linux64GccDPInt32Opt). Dibiarkan, wmake memakai aturan Icx sambil
+# memasang ke direktori Gcc dan menaut ke library inti g++ -- campuran ABI yang
+# LOLOS kompilasi lalu gagal saat runtime.
+case "${WM_OPTIONS:-}" in
+    *Gcc*) if [ "${WM_COMPILER:-}" != "Gcc" ]; then
+               echo "Allwmake: WM_COMPILER '${WM_COMPILER:-?}' -> Gcc (WM_OPTIONS=$WM_OPTIONS)" 1>&2
+               export WM_COMPILER=Gcc
+           fi ;;
+    *Icx*) export WM_COMPILER=Icx ;;
+esac
+
+# ---- isolasi lokasi pasang ---------------------------------------------------
+if [ "${BUNDLE_ISOLATED:-1}" != "0" ]
+then
+    export WM_PROJECT_USER_DIR="${BUNDLE_USER_DIR:-$HOME/OpenFOAM/bundle-$WM_PROJECT_VERSION}"
+    export FOAM_USER_APPBIN="$WM_PROJECT_USER_DIR/platforms/$WM_OPTIONS/bin"
+    export FOAM_USER_LIBBIN="$WM_PROJECT_USER_DIR/platforms/$WM_OPTIONS/lib"
+    mkdir -p "$FOAM_USER_APPBIN" "$FOAM_USER_LIBBIN"
+    # Didahulukan atas lokasi bersama supaya biner bundle yang terpakai saat run.
+    export PATH="$FOAM_USER_APPBIN:$PATH"
+    export LD_LIBRARY_PATH="$FOAM_USER_LIBBIN:${LD_LIBRARY_PATH:-}"
+    echo "Allwmake: TERISOLASI -> $WM_PROJECT_USER_DIR"
+else
+    echo "Allwmake: /!\\ TIDAK terisolasi -- memasang ke lokasi BERSAMA:" 1>&2
+    echo "          $FOAM_USER_LIBBIN" 1>&2
+    echo "          Ini MENIMPA biner pohon sumber lain di mesin ini." 1>&2
+fi
+
+echo "Allwmake: WM_OPTIONS=$WM_OPTIONS WM_COMPILER=$WM_COMPILER"
+echo "Allwmake: pasang ke  bin=$FOAM_USER_APPBIN"
+echo "Allwmake:            lib=$FOAM_USER_LIBBIN"
+echo ""
+
+onlyLib=0
+case "${1:-}" in
+    lib|libs) onlyLib=1; shift ;;
+esac
+
+# ---- peringatan `lib`: jebakan ABI --------------------------------------------
+# Header pustaka (mis. regionAdsorption.H) DI-INCLUDE oleh solver. Menambah atau
+# menghapus ANGGOTA DATA mengubah tata-letak objek. Kalau hanya pustaka yang
+# dibangun ulang, solver lama membaca objek baru di offset yang salah.
+#
+# Kegagalannya TIDAK menunjuk sebabnya: run berjalan normal beberapa langkah lalu
+# mati dengan "new cannot satisfy memory request ... out-of-date shared library",
+# di tempat yang tak berhubungan. Terjadi 2026-08-29 saat menambah `DknudGiven_`.
+#
+# `lib` hanya aman bila TIDAK ada header yang berubah. Kalau ragu, bangun penuh.
+if [ "$onlyLib" -eq 1 ]
+then
+    echo "" 1>&2
+    echo "/!\\ Allwmake lib: solver TIDAK dibangun ulang." 1>&2
+    echo "    Aman HANYA bila tak ada header yang berubah. Menambah/menghapus" 1>&2
+    echo "    anggota data pada header yang di-include solver akan memberi" 1>&2
+    echo "    ketidaksepadanan ABI yang gagal jauh dari sebabnya." 1>&2
+    echo "    Ragu -> jalankan './Allwmake' tanpa argumen." 1>&2
+    echo "" 1>&2
+fi
+
+set -e
+
+echo "==> [1/3] libadsorptionCoupledBCs"
+wmake libso speciesCoupledMixed "$@"
+
+echo "==> [2/3] libadsorptionModels"
+wmake libso adsorptionModels "$@"
+
+if [ "$onlyLib" -eq 1 ]
+then
+    echo "==> pustaka selesai (solver dilewati atas permintaan)"
+    exit 0
+fi
+
+echo "==> [3/3] adsorptionMultiRegionFoam"
+wmake "$@"
+
+echo ""
+echo "==> Selesai."
+ls -la "$FOAM_USER_LIBBIN"/libadsorption*.so "$FOAM_USER_APPBIN"/adsorptionMultiRegionFoam
+
+#------------------------------------------------------------------------------

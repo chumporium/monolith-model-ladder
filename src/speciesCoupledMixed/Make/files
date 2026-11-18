@@ -1,0 +1,6 @@
+speciesCoupledMixedFvPatchScalarField.C
+danckwertsInletFvPatchScalarField.C
+energyCoupledImplicitFvPatchScalarField.C
+danckwertsInletTemperatureFvPatchScalarField.C
+
+LIB = $(FOAM_USER_LIBBIN)/libadsorptionCoupledBCs

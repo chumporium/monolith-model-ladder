@@ -1,0 +1,23 @@
+isothermModel/isothermModel.C
+isothermModel/Toth/Toth.C
+isothermModel/Langmuir/Langmuir.C
+isothermModel/Sips/Sips.C
+isothermModel/DualSiteLangmuir/DualSiteLangmuir.C
+isothermModel/asymptoticMatched/asymptoticMatched.C
+isothermModel/NittaMultisite/NittaMultisite.C
+
+mixingRule/mixingRule.C
+mixingRule/ideal/idealMixing.C
+mixingRule/extendedLangmuir/extendedLangmuir.C
+mixingRule/IAST/IAST.C
+mixingRule/coAdsorption/coAdsorption.C
+
+kineticClosure/kineticClosure.C
+kineticClosure/localEquilibrium/localEquilibrium.C
+kineticClosure/LDF/LDF.C
+kineticClosure/dualSite/dualSite.C
+kineticClosure/intraGrainDiffusion/intraGrainDiffusion.C
+
+regionAdsorption/regionAdsorption.C
+
+LIB = $(FOAM_USER_LIBBIN)/libadsorptionModels

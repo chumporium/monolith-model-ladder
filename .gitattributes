@@ -1,0 +1,36 @@
+#------------------------------------------------------------------------------
+# .gitattributes -- solver_bundle
+#
+# KENAPA ADA: pohon ini disunting di Windows tetapi DIJALANKAN di Linux
+# (klaster HPC). Tanpa berkas ini Git mengubah LF -> CRLF saat checkout, dan
+# skrip shell mati dengan pesan yang tidak menunjuk sebabnya:
+#
+#     ./Allwmake: /usr/bin/env^M: bad interpreter: No such file or directory
+#
+# Dict OpenFOAM ber-CRLF juga dapat gagal terurai di beberapa parser.
+# Karena itu SELURUH berkas teks dipaksa LF, di repo maupun di working tree.
+#------------------------------------------------------------------------------
+
+* text=auto eol=lf
+
+# --- skrip: LF mutlak, tak boleh dinegosiasikan ---
+*.sh        text eol=lf
+Allwmake    text eol=lf
+Allrun      text eol=lf
+Allclean    text eol=lf
+*.py        text eol=lf
+
+# --- sumber & dict ---
+*.C         text eol=lf
+*.H         text eol=lf
+*.md        text eol=lf
+*.tex       text eol=lf
+*.txt       text eol=lf
+*.dat       text eol=lf
+*.xy        text eol=lf
+
+# --- biner: jangan disentuh sama sekali ---
+*.pdf       binary
+*.png       binary
+*.jpg       binary
+*.so        binary
